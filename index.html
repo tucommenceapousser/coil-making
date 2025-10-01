@@ -1,149 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>trhacknon Coil Builder</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>trhacknon Coil Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans">
-  <div id="root"></div>
+<div id="root"></div>
 
-  <script type="text/babel">
-  const { useState, useEffect, useRef } = React;
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
 
-  const materials = {
-    'Kanthal A1': { rho: 1.45, note: 'Kanthal A1 (Wattage only, not for TC)'},
-    'Nichrome (Ni80)': { rho: 1.09, note: 'Nichrome, high resistivity'},
-    'SS316L': { rho: 0.75, note: 'Stainless Steel 316L — works with TC and VW'},
-    'Ni200': { rho: 0.70, note: 'Nickel 200 — TC only, fragile'},
-    'Titanium (Ti)': { rho: 0.42, note: 'Titanium — TC only, handle with care'}
-  };
+const materials = {
+  'Kanthal A1': { rho: 1.45, note: 'Kanthal A1 (Wattage only, not for TC)'},
+  'Nichrome (Ni80)': { rho: 1.09, note: 'Nichrome, high resistivity'},
+  'SS316L': { rho: 0.75, note: 'Stainless Steel 316L — works with TC and VW'},
+  'Ni200': { rho: 0.70, note: 'Nickel 200 — TC only, fragile'},
+  'Titanium (Ti)': { rho: 0.42, note: 'Titanium — TC only, handle with care'}
+};
 
-  const awgTable = {20:0.8128,22:0.6438,24:0.511,26:0.405,28:0.321,30:0.255,32:0.202};
+const awgTable = {20:0.8128,22:0.6438,24:0.511,26:0.405,28:0.321,30:0.255,32:0.202};
 
-  function CoilBuilder(){
-    const [material, setMaterial] = useState('SS316L');
-    const [awg, setAwg] = useState(26);
-    const [useAwg, setUseAwg] = useState(true);
-    const [wireDia, setWireDia] = useState(awgTable[26]);
-    const [wraps, setWraps] = useState(5);
-    const [coilID, setCoilID] = useState(3);
-    const [legs, setLegs] = useState(6);
-    const [voltage, setVoltage] = useState(7.4);
-    const [targetOhm, setTargetOhm] = useState(0.25);
-    const [safetyAmp, setSafetyAmp] = useState(30);
+function CoilBuilder(){
+  const [material, setMaterial] = useState('SS316L');
+  const [awg, setAwg] = useState(26);
+  const [useAwg, setUseAwg] = useState(true);
+  const [wireDia, setWireDia] = useState(awgTable[26]);
+  const [wraps, setWraps] = useState(5);
+  const [coilID, setCoilID] = useState(3);
+  const [legs, setLegs] = useState(6);
+  const [voltage, setVoltage] = useState(7.4);
+  const [targetOhm, setTargetOhm] = useState(0.25);
+  const [safetyAmp, setSafetyAmp] = useState(30);
 
-    const canvasRef = useRef(null);
-    const calcWireDia = useAwg ? awgTable[awg] : wireDia;
+  const canvasRef = useRef(null);
+  const calcWireDia = useAwg ? awgTable[awg] : wireDia;
 
-    const mmToMeters = x => x/1000;
-    const area = d => Math.PI*Math.pow(d/2,2);
-    const lengthM = (w, id, legs) => mmToMeters(Math.PI*id*w + legs);
-    const computeResistance = (w) => (materials[material].rho*lengthM(w,coilID,legs))/area(calcWireDia);
-    const resistance = computeResistance(wraps);
-    const current = voltage / resistance;
-    const power = current*current*resistance;
+  const mmToMeters = x => x/1000;
+  const area = d => Math.PI*Math.pow(d/2,2);
+  const lengthM = (w, id, legs) => mmToMeters(Math.PI*id*w + legs);
+  const computeResistance = (w) => (materials[material].rho * lengthM(w,coilID,legs)) / area(calcWireDia);
 
-    function findWraps(){
-      for(let i=1;i<=60;i++){
-        const r = computeResistance(i);
-        if(r >= targetOhm) return {wraps:i, resistance:r};
-      }
-      return {wraps:60, resistance:computeResistance(60)};
+  const resistance = computeResistance(wraps);
+  const current = voltage / resistance;
+  const power = current * current * resistance;
+
+  const targetResult = (() => {
+    for(let i=1;i<=60;i++){
+      const r = computeResistance(i);
+      if(r >= targetOhm) return {wraps:i, resistance:r};
     }
+    return {wraps:60, resistance:computeResistance(60)};
+  })();
 
-    const targetResult = findWraps();
-
-    function exportCFG(){
-      const profile = {
-        Name:'DAB-CUSTOM',
-        Mode:(material==='SS316L' || material==='Ni200' || material.includes('Ti'))?'TC-SS':'Power',
-        Temperature:material==='SS316L'?220:undefined,
-        Power:Math.min(50,Math.round(power)),
-        PreheatPower:Math.round(Math.min(80,Math.max(20,power*1.4))),
-        PreheatTime:1,
-        Cutoff:8,
-        Resistance:resistance.toFixed(4)
-      };
-      let text='; Generated by trhacknon Coil Builder\n[ProfileCustom]\nName='+profile.Name+'\nMode='+profile.Mode+'\n';
-      if(profile.Temperature) text+='Temperature='+profile.Temperature+'\n';
-      text+='Power='+profile.Power+'\nPreheatPower='+profile.PreheatPower+'\nPreheatTime='+profile.PreheatTime+'\nCutoff='+profile.Cutoff+'\n; EstimatedResistance='+profile.Resistance+'\n';
-      const blob=new Blob([text],{type:'text/plain'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download='arcticfox-profile-dab.cfg';document.body.appendChild(a);a.click();a.remove();
-    }
-
-    useEffect(()=>{
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.strokeStyle = '#34D399';
-      ctx.lineWidth = 4;
-      const centerX = canvas.width/2;
-      const centerY = canvas.height/2;
-      const radiusStep = 8;
-      let currentRadius = 20;
-      for(let i=0;i<wraps;i++){
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, currentRadius, 0, Math.PI*2);
-        ctx.stroke();
-        currentRadius += radiusStep;
-      }
-    }, [wraps, coilID, legs, material, calcWireDia]);
-
-    return (
-      <div className="p-8 max-w-6xl mx-auto">
-        <h1 className="text-5xl font-extrabold text-green-400 mb-8 text-center">trhacknon Coil Builder</h1>
-        <div className="grid md:grid-cols-2 gap-8">
-
-          <div className="p-6 bg-gray-800 rounded-2xl border border-green-800 shadow-inner">
-            <h2 className="text-3xl font-bold mb-6 text-green-300 border-b border-green-500 pb-2">Inputs</h2>
-            <label className="block mb-4">Material<select value={material} onChange={e=>setMaterial(e.target.value)} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200">{Object.keys(materials).map(k=><option key={k} value={k}>{k} — {materials[k].note}</option>)}</select></label>
-            <label className="block mb-4"><input type="checkbox" checked={useAwg} onChange={e=>setUseAwg(e.target.checked)} className="mr-2 accent-green-400"/>Use AWG</label>
-            {useAwg ? (
-              <label className="block mb-4">AWG<select value={awg} onChange={e=>{setAwg(Number(e.target.value)); setWireDia(awgTable[Number(e.target.value)])}} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200">{Object.keys(awgTable).map(a=><option key={a} value={a}>AWG {a} — {awgTable[a]} mm</option>)}</select></label>
-            ):(
-              <label className="block mb-4">Wire Ø (mm)<input type="number" value={wireDia} onChange={e=>setWireDia(Number(e.target.value))} step="0.01" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/></label>
-            )}
-            <label className="block mb-4">Wraps<input type="number" value={wraps} onChange={e=>setWraps(Number(e.target.value))} min={1} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/></label>
-            <label className="block mb-4">Coil ID (mm)<input type="number" value={coilID} onChange={e=>setCoilID(Number(e.target.value))} step="0.1" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/></label>
-            <label className="block mb-4">Legs (mm)<input type="number" value={legs} onChange={e=>setLegs(Number(e.target.value))} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/></label>
-            <label className="block mb-4">Voltage (V)<input type="number" value={voltage} onChange={e=>setVoltage(Number(e.target.value))} step="0.1" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/></label>
-            <label className="block mb-4">Target Ω<input type="number" value={targetOhm} onChange={e=>setTargetOhm(Number(e.target.value))} step="0.01" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/></label>
-          </div>
-
-          <div className="p-6 bg-gray-800 rounded-2xl border border-green-800 shadow-inner">
-            <h2 className="text-3xl font-bold mb-6 text-green-300 border-b border-green-500 pb-2">Results</h2>
-            <canvas ref={canvasRef} width={300} height={300} className="mb-4 mx-auto border border-green-500 rounded"></canvas>
-            <div className="mb-2">Wire Ø: {calcWireDia.toFixed(3)} mm</div>
-            <div className="mb-2">Estimated Resistance: <strong className="text-yellow-300">{resistance.toFixed(4)} Ω</strong></div>
-            <div className="mb-2">Current: {current.toFixed(2)} A | Power: {power.toFixed(2)} W</div>
-            <div className={`mb-2 ${current>safetyAmp?'text-red-400':'text-green-300'}`}>
-              {current>safetyAmp?'⚠ Current exceeds safety limit':'Current within safe range'}
-            </div>
-            <div className="mt-4">
-              <h3 className="text-green-300 font-bold mb-2">Target Resistance Estimate</h3>
-              <div>{targetResult.wraps} wraps → {targetResult.resistance.toFixed(4)} Ω</div>
-            </div>
-            <button onClick={exportCFG} className="mt-4 w-full p-3 rounded bg-green-500 text-black font-bold hover:brightness-110 transition duration-200">
-              Export Arctic Fox .cfg
-            </button>
-          </div>
-        </div>
-
-        <footer className="mt-8 text-center text-xs text-gray-400">
-          Made with ♥ by <span className="text-green-300 font-bold">trhacknon</span>
-        </footer>
-      </div>
-    );
+  function exportCFG(){
+    const profile = {
+      Name:'DAB-CUSTOM',
+      Mode:(material==='SS316L' || material==='Ni200' || material.includes('Ti'))?'TC-SS':'Power',
+      Temperature:material==='SS316L'?220:undefined,
+      Power:Math.min(50,Math.round(power)),
+      PreheatPower:Math.round(Math.min(80,Math.max(20,power*1.4))),
+      PreheatTime:1,
+      Cutoff:8,
+      Resistance:resistance.toFixed(4)
+    };
+    let text='; Generated by trhacknon Coil Builder\n[ProfileCustom]\nName='+profile.Name+'\nMode='+profile.Mode+'\n';
+    if(profile.Temperature) text+='Temperature='+profile.Temperature+'\n';
+    text+='Power='+profile.Power+'\nPreheatPower='+profile.PreheatPower+'\nPreheatTime='+profile.PreheatTime+'\nCutoff='+profile.Cutoff+'\n; EstimatedResistance='+profile.Resistance+'\n';
+    const blob=new Blob([text],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='arcticfox-profile-dab.cfg';document.body.appendChild(a);a.click();a.remove();
   }
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<CoilBuilder />);
-  </script>
+  useEffect(()=>{
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = '#34D399';
+    ctx.lineWidth = 4;
+    const centerX = canvas.width/2;
+    const centerY = canvas.height/2;
+    const radiusStep = 8;
+    let currentRadius = 20;
+    for(let i=0;i<wraps;i++){
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, currentRadius, 0, Math.PI*2);
+      ctx.stroke();
+      currentRadius += radiusStep;
+    }
+  }, [wraps, coilID, legs, material, calcWireDia]);
+
+  return (
+    <div className="p-8 max-w-6xl mx-auto">
+      <h1 className="text-5xl font-extrabold text-green-400 mb-8 text-center">trhacknon Coil Builder</h1>
+      <div className="grid md:grid-cols-2 gap-8">
+
+        <div className="p-6 bg-gray-800 rounded-2xl border border-green-800 shadow-inner">
+          <h2 className="text-3xl font-bold mb-6 text-green-300 border-b border-green-500 pb-2">Inputs</h2>
+          <label className="block mb-4">Material
+            <select value={material} onChange={e=>setMaterial(e.target.value)} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200">
+              {Object.keys(materials).map(k=><option key={k} value={k}>{k} — {materials[k].note}</option>)}
+            </select>
+          </label>
+          <label className="block mb-4"><input type="checkbox" checked={useAwg} onChange={e=>setUseAwg(e.target.checked)} className="mr-2 accent-green-400"/>Use AWG</label>
+          {useAwg ? (
+            <label className="block mb-4">AWG
+              <select value={awg} onChange={e=>{setAwg(Number(e.target.value)); setWireDia(awgTable[Number(e.target.value)])}} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200">
+                {Object.keys(awgTable).map(a=><option key={a} value={a}>AWG {a} — {awgTable[a]} mm</option>)}
+              </select>
+            </label>
+          ):(
+            <label className="block mb-4">Wire Ø (mm)
+              <input type="number" value={wireDia} onChange={e=>setWireDia(Number(e.target.value))} step="0.01" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/>
+            </label>
+          )}
+          <label className="block mb-4">Wraps
+            <input type="number" value={wraps} onChange={e=>setWraps(Number(e.target.value))} min={1} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/>
+          </label>
+          <label className="block mb-4">Coil ID (mm)
+            <input type="number" value={coilID} onChange={e=>setCoilID(Number(e.target.value))} step="0.1" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/>
+          </label>
+          <label className="block mb-4">Legs (mm)
+            <input type="number" value={legs} onChange={e=>setLegs(Number(e.target.value))} className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/>
+          </label>
+          <label className="block mb-4">Voltage (V)
+            <input type="number" value={voltage} onChange={e=>setVoltage(Number(e.target.value))} step="0.1" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/>
+          </label>
+          <label className="block mb-4">Target Ω
+            <input type="number" value={targetOhm} onChange={e=>setTargetOhm(Number(e.target.value))} step="0.01" className="w-full p-3 rounded bg-gray-900 border border-green-700 hover:border-green-500 transition duration-200"/>
+          </label>
+        </div>
+
+        <div className="p-6 bg-gray-800 rounded-2xl border border-green-800 shadow-inner">
+          <h2 className="text-3xl font-bold mb-6 text-green-300 border-b border-green-500 pb-2">Results</h2>
+          <canvas ref={canvasRef} width={300} height={300} className="mb-4 mx-auto border border-green-500 rounded"></canvas>
+          <div className="mb-2">Wire Ø: {calcWireDia.toFixed(3)} mm</div>
+          <div className="mb-2">Estimated Resistance: <strong className="text-yellow-300">{resistance.toFixed(4)} Ω</strong></div>
+          <div className="mb-2">Current: {current.toFixed(2)} A | Power: {power.toFixed(2)} W</div>
+          <div className={`mb-2 ${current>safetyAmp?'text-red-400':'text-green-300'}`}>
+            {current>safetyAmp?'⚠ Current exceeds safety limit':'Current within safe range'}
+          </div>
+          <div className="mt-4">
+            <h3 className="text-green-300 font-bold mb-2">Target Resistance Estimate</h3>
+            <div>{targetResult.wraps} wraps → {targetResult.resistance.toFixed(4)} Ω</div>
+          </div>
+          <button 
+            onClick={exportCFG} 
+            className="mt-4 w-full p-3 rounded bg-green-500 text-black font-bold hover:brightness-110 transition duration-200"
+          >
+            Export Arctic Fox .cfg
+          </button>
+        </div>
+      </div>
+
+      <footer className="mt-8 text-center text-xs text-gray-400">
+        Made with ♥ by <span className="text-green-300 font-bold">trhacknon</span>
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<CoilBuilder />);
+</script>
 </body>
 </html>
