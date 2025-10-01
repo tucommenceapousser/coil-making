@@ -45,6 +45,26 @@ function CoilBuilder(){
   const lengthM = (w, id, legs) => mmToMeters(Math.PI*id*w + legs);
   const computeResistance = (w) => (materials[material].rho * lengthM(w,coilID,legs)) / area(calcWireDia);
 
+  // Mettre à jour le canvas à chaque changement
+  useEffect(()=>{
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = '#34D399';
+    ctx.lineWidth = 4;
+    const centerX = canvas.width/2;
+    const centerY = canvas.height/2;
+    const radiusStep = 8;
+    let currentRadius = 20;
+    for(let i=0;i<wraps;i++){
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, currentRadius, 0, Math.PI*2);
+      ctx.stroke();
+      currentRadius += radiusStep;
+    }
+  }, [wraps, coilID, legs, material, calcWireDia]);
+
+  // Recalcul dynamique à chaque render
   const resistance = computeResistance(wraps);
   const current = voltage / resistance;
   const power = current * current * resistance;
@@ -76,24 +96,6 @@ function CoilBuilder(){
     const a=document.createElement('a');
     a.href=url;a.download='arcticfox-profile-dab.cfg';document.body.appendChild(a);a.click();a.remove();
   }
-
-  useEffect(()=>{
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.strokeStyle = '#34D399';
-    ctx.lineWidth = 4;
-    const centerX = canvas.width/2;
-    const centerY = canvas.height/2;
-    const radiusStep = 8;
-    let currentRadius = 20;
-    for(let i=0;i<wraps;i++){
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, currentRadius, 0, Math.PI*2);
-      ctx.stroke();
-      currentRadius += radiusStep;
-    }
-  }, [wraps, coilID, legs, material, calcWireDia]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -149,10 +151,7 @@ function CoilBuilder(){
             <h3 className="text-green-300 font-bold mb-2">Target Resistance Estimate</h3>
             <div>{targetResult.wraps} wraps → {targetResult.resistance.toFixed(4)} Ω</div>
           </div>
-          <button 
-            onClick={exportCFG} 
-            className="mt-4 w-full p-3 rounded bg-green-500 text-black font-bold hover:brightness-110 transition duration-200"
-          >
+          <button onClick={exportCFG} className="mt-4 w-full p-3 rounded bg-green-500 text-black font-bold hover:brightness-110 transition duration-200">
             Export Arctic Fox .cfg
           </button>
         </div>
