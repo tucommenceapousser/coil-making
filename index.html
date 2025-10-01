@@ -182,15 +182,15 @@ function CoilBuilder(){
         <div className="p-6 bg-gray-800 rounded-2xl border border-yellow-800 shadow-inner">
           <h2 className="text-3xl font-bold mb-6 text-green-300 border-b border-blue-500 pb-2">Results</h2>
           <canvas ref={canvasRef} width={300} height={300} className="mb-4 mx-auto border border-blue-500 rounded"></canvas>
-          <div className="mb-2">Wire Ø: {calcWireDia.toFixed(3)} mm</div>
-          <div className="mb-2">Estimated Resistance: <strong className="text-red-400">{resistance.toFixed(4)} Ω</strong></div>
-          <div className="mb-2">Current:<strong className="text-red-400"> {current.toFixed(2)} A</strong> | Power: <strong className="text-red-400">{power.toFixed(2)} W</strong></div>
-          <div className={`mb-2 ${current>safetyAmp?'text-red-400':'text-yellow-300'}`}>
+          <div className="mb-2">Wire Ø: <strong className="text-blue-600">{calcWireDia.toFixed(3)} mm</strong></div>
+          <div className="mb-2">Estimated Resistance: <strong className="text-red-600">{resistance.toFixed(4)} Ω</strong></div>
+          <div className="mb-2">Current:<strong className="text-red-600"> {current.toFixed(2)} A</strong> | Power: <strong className="text-red-600">{power.toFixed(2)} W</strong></div>
+          <div className={`mb-2 ${current>safetyAmp?'text-red-600':'text-yellow-300'}`}>
             {current>safetyAmp?'⚠ Current exceeds safety limit':'Current within safe range'}
           </div>
           <div className="mt-4">
             <h3 className="text-green-300 font-bold mb-2">Target Resistance Estimate</h3>
-            <div>{targetResult.wraps} wraps →<strong className="text-red-400"> {targetResult.resistance.toFixed(4)} Ω</strong></div>
+            <div>{targetResult.wraps} wraps →<strong className="text-red-600"> {targetResult.resistance.toFixed(4)} Ω</strong></div>
           </div>
           <button onClick={exportCFG} className="mt-4 w-full p-3 rounded bg-pink-500 text-black font-bold hover:brightness-110 transition duration-200">
             Export Arctic Fox .cfg
